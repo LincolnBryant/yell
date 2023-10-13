@@ -1,0 +1,52 @@
+#!/usr/bin/env escript
+
+main(Args) ->
+    % Also read standard in
+    StdIn = read(standard_io),
+    io:format("StdIn: ~p~n", [StdIn]),
+    argparse:run(Args, cli(), #{progname => yell_client}).
+
+cli() ->
+    #{
+        arguments => [
+            % Sets the node name
+            #{ name => node,
+               type => {atom, unsafe}
+             },
+            #{ name => cookie, short => $c, long => "cookie", type => {atom, unsafe} }
+        ],
+        handler =>
+            fun (Args) ->
+                    connect(Args)
+            end
+     }.
+
+
+connect(Args) ->
+    net_kernel:start(undefined, #{name_domain => shortnames}),
+    maybe_set_cookie(Args),
+    #{ node := Node } = Args,
+    case net_kernel:connect_node(Node) of
+        true ->
+            io:format("Connected!~n");
+        false ->
+            io:format("Connection failed!~n")
+    end.
+
+maybe_set_cookie(#{ cookie := Cookie}) ->
+    erlang:set_cookie(Cookie);
+maybe_set_cookie(_) ->
+    ok.
+
+read(Device) ->
+    read(Device, []).
+read(Device, Acc) -> 
+    case io:get_line(Device, '') of 
+        eof -> 
+            Acc;
+        {error, Error} ->
+            io:format("Error ~p~n", [Error]),
+            Acc;
+        Data -> 
+            read(Device, [string:chomp(Data)|Acc])
+    end.
